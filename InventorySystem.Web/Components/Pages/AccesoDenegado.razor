@@ -1,0 +1,21 @@
+@page "/acceso-denegado"
+
+<PageTitle>Acceso Denegado</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-16">
+    <MudPaper Class="pa-8" Elevation="4">
+        <div class="d-flex flex-column align-center">
+            <MudIcon Icon="@Icons.Material.Filled.NoAccounts" Size="Size.Large" Color="Color.Error" Class="mb-4" />
+            <MudText Typo="Typo.h4" Class="mb-4" Color="Color.Error">Acceso Denegado</MudText>
+            <MudText Typo="Typo.body1" Class="mb-6" Align="Align.Center">
+                No tienes permisos suficientes para acceder a esta página.
+            </MudText>
+            <MudButton Variant="Variant.Filled" 
+                      Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.Home"
+                      Href="/">
+                Volver al Dashboard
+            </MudButton>
+        </div>
+    </MudPaper>
+</MudContainer>

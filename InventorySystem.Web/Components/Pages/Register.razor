@@ -1,0 +1,184 @@
+@page "/register"
+@using InventorySystem.Web.Services
+@using InventorySystem.Web.Models
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@layout InventorySystem.Web.Components.Layout.EmptyLayout
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudPaper Class="pa-8" Elevation="4">
+        <div class="d-flex justify-center mb-6">
+            <MudIcon Icon="@Icons.Material.Filled.Inventory" Size="Size.Large" Color="Color.Primary" />
+        </div>
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6">Registro de Usuario</MudText>
+        
+        <MudForm @ref="form" @bind-IsValid="@isValid">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="registerModel.FirstName"
+                                  Label="Nombres"
+                                  Required="true"
+                                  RequiredError="Los nombres son requeridos"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="registerModel.LastName"
+                                  Label="Apellidos"
+                                  Required="true"
+                                  RequiredError="Los apellidos son requeridos"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="registerModel.Email"
+                                  Label="Email"
+                                  InputType="InputType.Email"
+                                  Required="true"
+                                  RequiredError="El email es requerido"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Email" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="registerModel.Password"
+                                  Label="Contraseña"
+                                  InputType="@passwordInputType"
+                                  Required="true"
+                                  RequiredError="La contraseña es requerida"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@passwordAdornmentIcon"
+                                  OnAdornmentClick="@TogglePasswordVisibility" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="confirmPassword"
+                                  Label="Confirmar Contraseña"
+                                  InputType="@confirmPasswordInputType"
+                                  Required="true"
+                                  RequiredError="La confirmación de contraseña es requerida"
+                                  Validation="@(new Func<string, string>(ValidatePasswordMatch))"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@confirmPasswordAdornmentIcon"
+                                  OnAdornmentClick="@ToggleConfirmPasswordVisibility" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSelect @bind-Value="registerModel.Role"
+                              Label="Rol"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="Debe seleccionar un rol">
+                        <MudSelectItem Value="@("Admin")">Administrador</MudSelectItem>
+                        <MudSelectItem Value="@("Vendedor")">Vendedor</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudButton Variant="Variant.Filled"
+                              Color="Color.Primary"
+                              FullWidth="true"
+                              Size="Size.Large"
+                              OnClick="@HandleRegister"
+                              Disabled="@(!isValid || loading)">
+                        @if (loading)
+                        {
+                            <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                            <MudText Class="ms-2">Registrando...</MudText>
+                        }
+                        else
+                        {
+                            <MudText>Registrarse</MudText>
+                        }
+                    </MudButton>
+                </MudItem>
+                <MudItem xs="12" Class="mt-4">
+                    <MudDivider />
+                    <div class="d-flex justify-center mt-4">
+                        <MudText Typo="Typo.body2">¿Ya tienes cuenta?</MudText>
+                        <MudButton Color="Color.Primary" 
+                                  Variant="Variant.Text" 
+                                  Size="Size.Small"
+                                  OnClick="@(() => Navigation.NavigateTo("/login"))"
+                                  Class="ml-2">
+                            Iniciar Sesión
+                        </MudButton>
+                    </div>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private RegisterDto registerModel = new() { Role = "Vendedor" };
+    private string confirmPassword = "";
+    private MudForm form = null!;
+    private bool isValid;
+    private bool loading;
+    
+    // Password visibility
+    private InputType passwordInputType = InputType.Password;
+    private string passwordAdornmentIcon = Icons.Material.Filled.VisibilityOff;
+    private InputType confirmPasswordInputType = InputType.Password;
+    private string confirmPasswordAdornmentIcon = Icons.Material.Filled.VisibilityOff;
+
+    private string ValidatePasswordMatch(string confirmPass)
+    {
+        return confirmPass != registerModel.Password ? "Las contraseñas no coinciden" : "";
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        if (passwordInputType == InputType.Password)
+        {
+            passwordInputType = InputType.Text;
+            passwordAdornmentIcon = Icons.Material.Filled.Visibility;
+        }
+        else
+        {
+            passwordInputType = InputType.Password;
+            passwordAdornmentIcon = Icons.Material.Filled.VisibilityOff;
+        }
+    }
+
+    private void ToggleConfirmPasswordVisibility()
+    {
+        if (confirmPasswordInputType == InputType.Password)
+        {
+            confirmPasswordInputType = InputType.Text;
+            confirmPasswordAdornmentIcon = Icons.Material.Filled.Visibility;
+        }
+        else
+        {
+            confirmPasswordInputType = InputType.Password;
+            confirmPasswordAdornmentIcon = Icons.Material.Filled.VisibilityOff;
+        }
+    }
+
+    private async Task HandleRegister()
+    {
+        if (!isValid) return;
+
+        loading = true;
+        try
+        {
+            var result = await AuthService.RegisterAsync(registerModel);
+            if (result.Success)
+            {
+                Snackbar.Add("Registro exitoso. Ahora puede iniciar sesión.", Severity.Success);
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                Snackbar.Add($"Error: {result.Message}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error de conexión con el servidor", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

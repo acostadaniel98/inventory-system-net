@@ -1,0 +1,206 @@
+@page "/productos"
+@using InventorySystem.Web.Models
+@using InventorySystem.Web.Services
+@inject IProductoClientService ProductoService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@attribute [Authorize(Roles = "Admin,Vendedor")]
+
+<PageTitle>Gestión de Productos</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Class="pa-4">
+        <div class="d-flex justify-space-between align-center mb-4">
+            <MudText Typo="Typo.h4" Color="Color.Primary">Gestión de Productos</MudText>
+            <MudButton Variant="Variant.Filled" 
+                      Color="Color.Primary" 
+                      StartIcon="@Icons.Material.Filled.Add"
+                      OnClick="@(() => OpenProductDialog(null))"
+                      Class="ml-auto">
+                Nuevo Producto
+            </MudButton>
+        </div>
+
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="searchText" 
+                             Label="Buscar productos..." 
+                             Variant="Variant.Outlined" 
+                             Adornment="Adornment.End" 
+                             AdornmentIcon="@Icons.Material.Filled.Search"
+                             AdornmentColor="Color.Secondary"
+                             OnKeyUp="@OnSearch" />
+            </MudItem>
+            <MudItem xs="12" md="2">
+                <MudButton Variant="Variant.Outlined" 
+                          Color="Color.Secondary"
+                          FullWidth="true"
+                          OnClick="@LoadProducts">
+                    Actualizar
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+
+        @if (loading)
+        {
+            <div class="d-flex justify-center mt-4">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            </div>
+        }
+        else
+        {
+            <MudTable Items="@filteredProducts" 
+                     Hover="true" 
+                     Breakpoint="Breakpoint.Sm" 
+                     LoadingProgressColor="Color.Info"
+                     Class="mt-4">
+                <HeaderContent>
+                    <MudTh>Código</MudTh>
+                    <MudTh>Nombre</MudTh>
+                    <MudTh>Descripción</MudTh>
+                    <MudTh>Precio</MudTh>
+                    <MudTh>Stock</MudTh>
+                    <MudTh>Stock Mínimo</MudTh>
+                    <MudTh>Estado</MudTh>
+                    <MudTh>Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Código">@context.Codigo</MudTd>
+                    <MudTd DataLabel="Nombre">@context.Nombre</MudTd>
+                    <MudTd DataLabel="Descripción">@context.Descripcion</MudTd>
+                    <MudTd DataLabel="Precio">@context.Precio.ToString("C")</MudTd>
+                    <MudTd DataLabel="Stock">
+                        <MudChip T="string" Color="@GetStockColor(context.Stock, context.StockMinimo)" Size="Size.Small">
+                            @context.Stock
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Stock Mínimo">@context.StockMinimo</MudTd>
+                    <MudTd DataLabel="Estado">
+                        <MudChip T="string" Color="@(context.Activo ? Color.Success : Color.Error)" Size="Size.Small">
+                            @(context.Activo ? "Activo" : "Inactivo")
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Acciones">
+                        <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                          Color="Color.Primary"
+                                          Size="Size.Small"
+                                          OnClick="@(() => OpenProductDialog(context))" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                          Color="Color.Error"
+                                          Size="Size.Small"
+                                          OnClick="@(() => DeleteProduct(context))" />
+                        </MudButtonGroup>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body1" Align="Align.Center">No se encontraron productos</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<ProductoDto> products = new();
+    private List<ProductoDto> filteredProducts = new();
+    private string searchText = "";
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        loading = true;
+        try
+        {
+            var response = await ProductoService.GetAllAsync();
+            if (response.Success)
+            {
+                products = response.Data ?? new List<ProductoDto>();
+                filteredProducts = products;
+            }
+            else
+            {
+                Snackbar.Add($"Error al cargar productos: {response.Message}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error de conexión con el servidor", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void OnSearch()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredProducts = products;
+        }
+        else
+        {
+            filteredProducts = products.Where(p => 
+                p.Nombre.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                p.Codigo.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                p.Descripcion.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+    }
+
+    private Color GetStockColor(int stock, int stockMinimo)
+    {
+        if (stock <= 0) return Color.Error;
+        if (stock <= stockMinimo) return Color.Warning;
+        return Color.Success;
+    }
+
+    private async Task OpenProductDialog(ProductoDto? producto)
+    {
+        var parameters = new DialogParameters();
+        if (producto != null)
+        {
+            parameters.Add("Producto", producto);
+        }
+
+        var dialog = await DialogService.ShowAsync<ProductoDialog>(
+            producto == null ? "Nuevo Producto" : "Editar Producto",
+            parameters,
+            new DialogOptions() { MaxWidth = MaxWidth.Medium, FullWidth = true }
+        );
+
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            await LoadProducts();
+        }
+    }
+
+    private async Task DeleteProduct(ProductoDto producto)
+    {
+        var confirmDialog = await DialogService.ShowMessageBox(
+            "Confirmar Eliminación",
+            $"¿Está seguro de eliminar el producto '{producto.Nombre}'?",
+            yesText: "Eliminar", cancelText: "Cancelar");
+
+        if (confirmDialog == true)
+        {
+            var response = await ProductoService.DeleteAsync(producto.Id);
+            if (response.Success)
+            {
+                Snackbar.Add("Producto eliminado correctamente", Severity.Success);
+                await LoadProducts();
+            }
+            else
+            {
+                Snackbar.Add($"Error al eliminar producto: {response.Message}", Severity.Error);
+            }
+        }
+    }
+}

@@ -1,0 +1,126 @@
+@page "/login"
+@using InventorySystem.Web.Services
+@using InventorySystem.Web.Models
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@layout InventorySystem.Web.Components.Layout.EmptyLayout
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Class="pa-8" Elevation="4">
+        <div class="d-flex justify-center mb-6">
+            <MudIcon Icon="@Icons.Material.Filled.Inventory" Size="Size.Large" Color="Color.Primary" />
+        </div>
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6">Sistema de Inventario</MudText>
+        
+        <MudForm @ref="form" @bind-IsValid="@isValid">
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="loginModel.Email"
+                                  Label="Email"
+                                  InputType="InputType.Email"
+                                  Required="true"
+                                  RequiredError="El email es requerido"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Email" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="loginModel.Password"
+                                  Label="Contraseña"
+                                  InputType="@passwordInputType"
+                                  Required="true"
+                                  RequiredError="La contraseña es requerida"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@passwordAdornmentIcon"
+                                  OnAdornmentClick="@TogglePasswordVisibility" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudButton Variant="Variant.Filled"
+                              Color="Color.Primary"
+                              FullWidth="true"
+                              Size="Size.Large"
+                              OnClick="@HandleLogin"
+                              Disabled="@(!isValid || loading)">
+                        @if (loading)
+                        {
+                            <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                            <MudText Class="ms-2">Iniciando sesión...</MudText>
+                        }
+                        else
+                        {
+                            <MudText>Iniciar Sesión</MudText>
+                        }
+                    </MudButton>
+                </MudItem>
+                <MudItem xs="12" Class="mt-4">
+                    <MudDivider />
+                    <div class="d-flex justify-center mt-4">
+                        <MudText Typo="Typo.body2">¿No tienes cuenta?</MudText>
+                        <MudButton Color="Color.Primary" 
+                                  Variant="Variant.Text" 
+                                  Size="Size.Small"
+                                  OnClick="@(() => Navigation.NavigateTo("/register"))"
+                                  Class="ml-2">
+                            Registrarse
+                        </MudButton>
+                    </div>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private LoginDto loginModel = new();
+    private MudForm form = null!;
+    private bool isValid;
+    private bool loading;
+    
+    // Password visibility
+    private InputType passwordInputType = InputType.Password;
+    private string passwordAdornmentIcon = Icons.Material.Filled.VisibilityOff;
+
+    private void TogglePasswordVisibility()
+    {
+        if (passwordInputType == InputType.Password)
+        {
+            passwordInputType = InputType.Text;
+            passwordAdornmentIcon = Icons.Material.Filled.Visibility;
+        }
+        else
+        {
+            passwordInputType = InputType.Password;
+            passwordAdornmentIcon = Icons.Material.Filled.VisibilityOff;
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        if (!isValid) return;
+
+        loading = true;
+        try
+        {
+            var result = await AuthService.LoginAsync(loginModel);
+            if (result.Success)
+            {
+                Snackbar.Add("Inicio de sesión exitoso", Severity.Success);
+                Navigation.NavigateTo("/", true); // Force reload para actualizar el AuthenticationState
+            }
+            else
+            {
+                Snackbar.Add($"Error: {result.Message}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error de conexión con el servidor", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

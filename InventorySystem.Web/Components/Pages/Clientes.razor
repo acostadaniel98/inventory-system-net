@@ -1,0 +1,191 @@
+@page "/clientes"
+@using InventorySystem.Web.Models
+@using InventorySystem.Web.Services
+@inject IClienteClientService ClienteService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@attribute [Authorize(Roles = "Admin,Vendedor")]
+
+<PageTitle>Gestión de Clientes</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Class="pa-4">
+        <div class="d-flex justify-space-between align-center mb-4">
+            <MudText Typo="Typo.h4" Color="Color.Primary">Gestión de Clientes</MudText>
+            <MudButton Variant="Variant.Filled" 
+                      Color="Color.Primary" 
+                      StartIcon="@Icons.Material.Filled.Add"
+                      OnClick="@(() => OpenClienteDialog(null))"
+                      Class="ml-auto">
+                Nuevo Cliente
+            </MudButton>
+        </div>
+
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="searchText" 
+                             Label="Buscar clientes..." 
+                             Variant="Variant.Outlined" 
+                             Adornment="Adornment.End" 
+                             AdornmentIcon="@Icons.Material.Filled.Search"
+                             AdornmentColor="Color.Secondary"
+                             OnKeyUp="@OnSearch" />
+            </MudItem>
+            <MudItem xs="12" md="2">
+                <MudButton Variant="Variant.Outlined" 
+                          Color="Color.Secondary"
+                          FullWidth="true"
+                          OnClick="@LoadClientes">
+                    Actualizar
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+
+        @if (loading)
+        {
+            <div class="d-flex justify-center mt-4">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            </div>
+        }
+        else
+        {
+            <MudTable Items="@filteredClientes" 
+                     Hover="true" 
+                     Breakpoint="Breakpoint.Sm" 
+                     LoadingProgressColor="Color.Info"
+                     Class="mt-4">
+                <HeaderContent>
+                    <MudTh>Nombre</MudTh>
+                    <MudTh>Teléfono</MudTh>
+                    <MudTh>Email</MudTh>
+                    <MudTh>Dirección</MudTh>
+                    <MudTh>Estado</MudTh>
+                    <MudTh>Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Nombre">@context.Nombre</MudTd>
+                    <MudTd DataLabel="Teléfono">@context.Telefono</MudTd>
+                    <MudTd DataLabel="Email">@context.Email</MudTd>
+                    <MudTd DataLabel="Dirección">@context.Direccion</MudTd>
+                    <MudTd DataLabel="Estado">
+                        <MudChip T="string" Color="@(context.Activo ? Color.Success : Color.Error)" Size="Size.Small">
+                            @(context.Activo ? "Activo" : "Inactivo")
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Acciones">
+                        <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                          Color="Color.Primary"
+                                          Size="Size.Small"
+                                          OnClick="@(() => OpenClienteDialog(context))" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                          Color="Color.Error"
+                                          Size="Size.Small"
+                                          OnClick="@(() => DeleteCliente(context))" />
+                        </MudButtonGroup>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body1" Align="Align.Center">No se encontraron clientes</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<ClienteDto> clientes = new();
+    private List<ClienteDto> filteredClientes = new();
+    private string searchText = "";
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClientes();
+    }
+
+    private async Task LoadClientes()
+    {
+        loading = true;
+        try
+        {
+            var response = await ClienteService.GetAllAsync();
+            if (response.Success)
+            {
+                clientes = response.Data ?? new List<ClienteDto>();
+                filteredClientes = clientes;
+            }
+            else
+            {
+                Snackbar.Add($"Error al cargar clientes: {response.Message}", Severity.Error);
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Error de conexión con el servidor", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void OnSearch()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredClientes = clientes;
+        }
+        else
+        {
+            filteredClientes = clientes.Where(c => 
+                c.Nombre.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                (c.Email ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                (c.Telefono ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+    }
+
+    private async Task OpenClienteDialog(ClienteDto? cliente)
+    {
+        var parameters = new DialogParameters();
+        if (cliente != null)
+        {
+            parameters.Add("Cliente", cliente);
+        }
+
+        var dialog = await DialogService.ShowAsync<ClienteDialog>(
+            cliente == null ? "Nuevo Cliente" : "Editar Cliente",
+            parameters,
+            new DialogOptions() { MaxWidth = MaxWidth.Medium, FullWidth = true }
+        );
+
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            await LoadClientes();
+        }
+    }
+
+    private async Task DeleteCliente(ClienteDto cliente)
+    {
+        var confirmDialog = await DialogService.ShowMessageBox(
+            "Confirmar Eliminación",
+            $"¿Está seguro de eliminar el cliente '{cliente.Nombre}'?",
+            yesText: "Eliminar", cancelText: "Cancelar");
+
+        if (confirmDialog == true)
+        {
+            var response = await ClienteService.DeleteAsync(cliente.Id);
+            if (response.Success)
+            {
+                Snackbar.Add("Cliente eliminado correctamente", Severity.Success);
+                await LoadClientes();
+            }
+            else
+            {
+                Snackbar.Add($"Error al eliminar cliente: {response.Message}", Severity.Error);
+            }
+        }
+    }
+}

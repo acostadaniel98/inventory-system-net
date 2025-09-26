@@ -1,0 +1,152 @@
+@using InventorySystem.Web.Models
+@using InventorySystem.Web.Services
+@inject IProveedorClientService ProveedorService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="form" @bind-IsValid="@isValid">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="proveedor.Nombre"
+                                  Label="Nombre del Proveedor"
+                                  Required="true"
+                                  RequiredError="El nombre es requerido"
+                                  MaxLength="100"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="proveedor.Ruc"
+                                  Label="RUC"
+                                  MaxLength="20"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="proveedor.Direccion"
+                                  Label="Dirección"
+                                  Lines="2"
+                                  MaxLength="200"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="proveedor.Contacto"
+                                  Label="Persona de Contacto"
+                                  MaxLength="100"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="proveedor.Telefono"
+                                  Label="Teléfono"
+                                  MaxLength="20"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="proveedor.Email"
+                                  Label="Email"
+                                  InputType="InputType.Email"
+                                  MaxLength="100"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSwitch T="bool" @bind-Value="proveedor.Activo"
+                               Label="Proveedor Activo"
+                               Color="Color.Primary" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" 
+                  Variant="Variant.Filled" 
+                  OnClick="Submit"
+                  Disabled="@(!isValid || loading)"
+                  StartIcon="@Icons.Material.Filled.Save">
+            @if (loading)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                <MudText Class="ms-2">Guardando...</MudText>
+            }
+            else
+            {
+                <MudText>Guardar</MudText>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public ProveedorDto? Proveedor { get; set; }
+
+    private ProveedorDto proveedor = new();
+    private MudForm form = null!;
+    private bool isValid;
+    private bool loading;
+
+    protected override void OnInitialized()
+    {
+        if (Proveedor != null)
+        {
+            proveedor = new ProveedorDto
+            {
+                Id = Proveedor.Id,
+                Nombre = Proveedor.Nombre,
+                Ruc = Proveedor.Ruc,
+                Direccion = Proveedor.Direccion,
+                Contacto = Proveedor.Contacto,
+                Telefono = Proveedor.Telefono,
+                Email = Proveedor.Email,
+                Activo = Proveedor.Activo
+            };
+        }
+        else
+        {
+            proveedor = new ProveedorDto
+            {
+                Activo = true
+            };
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        if (!isValid) return;
+
+        loading = true;
+        try
+        {
+            ApiResponse<ProveedorDto> response;
+            
+            if (Proveedor == null) // Crear nuevo
+            {
+                response = await ProveedorService.CreateAsync(proveedor);
+            }
+            else // Actualizar existente
+            {
+                response = await ProveedorService.UpdateAsync(proveedor.Id, proveedor);
+            }
+
+            if (response.Success)
+            {
+                var action = Proveedor == null ? "creado" : "actualizado";
+                Snackbar.Add($"Proveedor {action} correctamente", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add($"Error: {response.Message}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error de conexión con el servidor", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

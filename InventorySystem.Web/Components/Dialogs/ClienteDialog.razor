@@ -1,0 +1,138 @@
+@using InventorySystem.Web.Models
+@using InventorySystem.Web.Services
+@inject IClienteClientService ClienteService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="form" @bind-IsValid="@isValid">
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="cliente.Nombre"
+                                  Label="Nombre del Cliente"
+                                  Required="true"
+                                  RequiredError="El nombre es requerido"
+                                  MaxLength="100"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="cliente.Direccion"
+                                  Label="Dirección"
+                                  Lines="2"
+                                  MaxLength="200"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="cliente.Telefono"
+                                  Label="Teléfono"
+                                  MaxLength="20"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="cliente.Email"
+                                  Label="Email"
+                                  InputType="InputType.Email"
+                                  MaxLength="100"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSwitch T="bool" @bind-Value="cliente.Activo"
+                               Label="Cliente Activo"
+                               Color="Color.Primary" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" 
+                  Variant="Variant.Filled" 
+                  OnClick="Submit"
+                  Disabled="@(!isValid || loading)"
+                  StartIcon="@Icons.Material.Filled.Save">
+            @if (loading)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                <MudText Class="ms-2">Guardando...</MudText>
+            }
+            else
+            {
+                <MudText>Guardar</MudText>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public ClienteDto? Cliente { get; set; }
+
+    private ClienteDto cliente = new();
+    private MudForm form = null!;
+    private bool isValid;
+    private bool loading;
+
+    protected override void OnInitialized()
+    {
+        if (Cliente != null)
+        {
+            cliente = new ClienteDto
+            {
+                Id = Cliente.Id,
+                Nombre = Cliente.Nombre,
+                Direccion = Cliente.Direccion,
+                Telefono = Cliente.Telefono,
+                Email = Cliente.Email,
+                Activo = Cliente.Activo
+            };
+        }
+        else
+        {
+            cliente = new ClienteDto
+            {
+                Activo = true
+            };
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        if (!isValid) return;
+
+        loading = true;
+        try
+        {
+            ApiResponse<ClienteDto> response;
+            
+            if (Cliente == null) // Crear nuevo
+            {
+                response = await ClienteService.CreateAsync(cliente);
+            }
+            else // Actualizar existente
+            {
+                response = await ClienteService.UpdateAsync(cliente.Id, cliente);
+            }
+
+            if (response.Success)
+            {
+                var action = Cliente == null ? "creado" : "actualizado";
+                Snackbar.Add($"Cliente {action} correctamente", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add($"Error: {response.Message}", Severity.Error);
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Error de conexión con el servidor", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

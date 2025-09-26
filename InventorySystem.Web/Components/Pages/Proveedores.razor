@@ -1,0 +1,194 @@
+@page "/proveedores"
+@using InventorySystem.Web.Models
+@using InventorySystem.Web.Services
+@inject IProveedorClientService ProveedorService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@attribute [Authorize(Roles = "Admin,Vendedor")]
+
+<PageTitle>Gestión de Proveedores</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Class="pa-4">
+        <div class="d-flex justify-space-between align-center mb-4">
+            <MudText Typo="Typo.h4" Color="Color.Primary">Gestión de Proveedores</MudText>
+            <MudButton Variant="Variant.Filled" 
+                      Color="Color.Primary" 
+                      StartIcon="@Icons.Material.Filled.Add"
+                      OnClick="@(() => OpenProveedorDialog(null))"
+                      Class="ml-auto">
+                Nuevo Proveedor
+            </MudButton>
+        </div>
+
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="searchText" 
+                             Label="Buscar proveedores..." 
+                             Variant="Variant.Outlined" 
+                             Adornment="Adornment.End" 
+                             AdornmentIcon="@Icons.Material.Filled.Search"
+                             AdornmentColor="Color.Secondary"
+                             OnKeyUp="@OnSearch" />
+            </MudItem>
+            <MudItem xs="12" md="2">
+                <MudButton Variant="Variant.Outlined" 
+                          Color="Color.Secondary"
+                          FullWidth="true"
+                          OnClick="@LoadProveedores">
+                    Actualizar
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+
+        @if (loading)
+        {
+            <div class="d-flex justify-center mt-4">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            </div>
+        }
+        else
+        {
+            <MudTable Items="@filteredProveedores" 
+                     Hover="true" 
+                     Breakpoint="Breakpoint.Sm" 
+                     LoadingProgressColor="Color.Info"
+                     Class="mt-4">
+                <HeaderContent>
+                    <MudTh>Nombre</MudTh>
+                    <MudTh>RUC</MudTh>
+                    <MudTh>Contacto</MudTh>
+                    <MudTh>Teléfono</MudTh>
+                    <MudTh>Email</MudTh>
+                    <MudTh>Estado</MudTh>
+                    <MudTh>Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Nombre">@context.Nombre</MudTd>
+                    <MudTd DataLabel="RUC">@context.Ruc</MudTd>
+                    <MudTd DataLabel="Contacto">@context.Contacto</MudTd>
+                    <MudTd DataLabel="Teléfono">@context.Telefono</MudTd>
+                    <MudTd DataLabel="Email">@context.Email</MudTd>
+                    <MudTd DataLabel="Estado">
+                        <MudChip T="string" Color="@(context.Activo ? Color.Success : Color.Error)" Size="Size.Small">
+                            @(context.Activo ? "Activo" : "Inactivo")
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Acciones">
+                        <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                          Color="Color.Primary"
+                                          Size="Size.Small"
+                                          OnClick="@(() => OpenProveedorDialog(context))" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                          Color="Color.Error"
+                                          Size="Size.Small"
+                                          OnClick="@(() => DeleteProveedor(context))" />
+                        </MudButtonGroup>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body1" Align="Align.Center">No se encontraron proveedores</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<ProveedorDto> proveedores = new();
+    private List<ProveedorDto> filteredProveedores = new();
+    private string searchText = "";
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProveedores();
+    }
+
+    private async Task LoadProveedores()
+    {
+        loading = true;
+        try
+        {
+            var response = await ProveedorService.GetAllAsync();
+            if (response.Success)
+            {
+                proveedores = response.Data ?? new List<ProveedorDto>();
+                filteredProveedores = proveedores;
+            }
+            else
+            {
+                Snackbar.Add($"Error al cargar proveedores: {response.Message}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error de conexión con el servidor", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void OnSearch()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredProveedores = proveedores;
+        }
+        else
+        {
+            filteredProveedores = proveedores.Where(p => 
+                p.Nombre.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                p.Ruc.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                (p.Contacto ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                (p.Email ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+    }
+
+    private async Task OpenProveedorDialog(ProveedorDto? proveedor)
+    {
+        var parameters = new DialogParameters();
+        if (proveedor != null)
+        {
+            parameters.Add("Proveedor", proveedor);
+        }
+
+        var dialog = await DialogService.ShowAsync<ProveedorDialog>(
+            proveedor == null ? "Nuevo Proveedor" : "Editar Proveedor",
+            parameters,
+            new DialogOptions() { MaxWidth = MaxWidth.Medium, FullWidth = true }
+        );
+
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            await LoadProveedores();
+        }
+    }
+
+    private async Task DeleteProveedor(ProveedorDto proveedor)
+    {
+        var confirmDialog = await DialogService.ShowMessageBox(
+            "Confirmar Eliminación",
+            $"¿Está seguro de eliminar el proveedor '{proveedor.Nombre}'?",
+            yesText: "Eliminar", cancelText: "Cancelar");
+
+        if (confirmDialog == true)
+        {
+            var response = await ProveedorService.DeleteAsync(proveedor.Id);
+            if (response.Success)
+            {
+                Snackbar.Add("Proveedor eliminado correctamente", Severity.Success);
+                await LoadProveedores();
+            }
+            else
+            {
+                Snackbar.Add($"Error al eliminar proveedor: {response.Message}", Severity.Error);
+            }
+        }
+    }
+}

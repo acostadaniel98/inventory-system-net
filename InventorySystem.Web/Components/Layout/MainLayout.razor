@@ -1,0 +1,61 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using InventorySystem.Web.Services
+@inherits LayoutComponentBase
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4 d-flex justify-space-between align-center">
+            <MudText Typo="Typo.h6">Sistema de Inventario</MudText>
+            
+            <AuthorizeView>
+                <Authorized>
+                    <div class="d-flex align-center">
+                        <MudText Class="mr-4">Bienvenido, @context.User.Identity?.Name</MudText>
+                        <MudButton Variant="Variant.Text" 
+                                  Color="Color.Error"
+                                  StartIcon="@Icons.Material.Filled.Logout"
+                                  OnClick="@HandleLogout"
+                                  Size="Size.Small">
+                            Cerrar Sesión
+                        </MudButton>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <MudButton Variant="Variant.Text" 
+                              Color="Color.Primary"
+                              StartIcon="@Icons.Material.Filled.Login"
+                              OnClick="@(() => Navigation.NavigateTo("/login"))"
+                              Size="Size.Small">
+                        Iniciar Sesión
+                    </MudButton>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        Snackbar.Add("Sesión cerrada correctamente", Severity.Success);
+        Navigation.NavigateTo("/login", true);
+    }
+}

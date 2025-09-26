@@ -1,0 +1,167 @@
+@using InventorySystem.Web.Models
+@using InventorySystem.Web.Services
+@inject IProductoClientService ProductoService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="form" @bind-IsValid="@isValid">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="producto.Codigo"
+                                  Label="Código del Producto"
+                                  Required="true"
+                                  RequiredError="El código es requerido"
+                                  MaxLength="50"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="producto.Nombre"
+                                  Label="Nombre del Producto"
+                                  Required="true"
+                                  RequiredError="El nombre es requerido"
+                                  MaxLength="100"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="producto.Descripcion"
+                                  Label="Descripción"
+                                  Lines="3"
+                                  MaxLength="500"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudNumericField @bind-Value="producto.Precio"
+                                     Label="Precio"
+                                     Required="true"
+                                     RequiredError="El precio es requerido"
+                                     Min="0"
+                                     Step="0.01M"
+                                     Format="N2"
+                                     Culture="@System.Globalization.CultureInfo.GetCultureInfo("es-ES")"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.AttachMoney"
+                                     Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudNumericField @bind-Value="producto.Stock"
+                                     Label="Stock Actual"
+                                     Min="0"
+                                     Step="1"
+                                     Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudNumericField @bind-Value="producto.StockMinimo"
+                                     Label="Stock Mínimo"
+                                     Required="true"
+                                     RequiredError="El stock mínimo es requerido"
+                                     Min="0"
+                                     Step="1"
+                                     Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSwitch T="bool" @bind-Value="producto.Activo"
+                               Label="Producto Activo"
+                               Color="Color.Primary" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" 
+                  Variant="Variant.Filled" 
+                  OnClick="Submit"
+                  Disabled="@(!isValid || loading)"
+                  StartIcon="@Icons.Material.Filled.Save">
+            @if (loading)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                <MudText Class="ms-2">Guardando...</MudText>
+            }
+            else
+            {
+                <MudText>Guardar</MudText>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public ProductoDto? Producto { get; set; }
+
+    private ProductoDto producto = new();
+    private MudForm form = null!;
+    private bool isValid;
+    private bool loading;
+
+    protected override void OnInitialized()
+    {
+        if (Producto != null)
+        {
+            producto = new ProductoDto
+            {
+                Id = Producto.Id,
+                Codigo = Producto.Codigo,
+                Nombre = Producto.Nombre,
+                Descripcion = Producto.Descripcion,
+                Precio = Producto.Precio,
+                Stock = Producto.Stock,
+                StockMinimo = Producto.StockMinimo,
+                Activo = Producto.Activo
+            };
+        }
+        else
+        {
+            producto = new ProductoDto
+            {
+                Activo = true,
+                Stock = 0,
+                StockMinimo = 1,
+                Precio = 0
+            };
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        if (!isValid) return;
+
+        loading = true;
+        try
+        {
+            ApiResponse<ProductoDto> response;
+            
+            if (Producto == null) // Crear nuevo
+            {
+                response = await ProductoService.CreateAsync(producto);
+            }
+            else // Actualizar existente
+            {
+                response = await ProductoService.UpdateAsync(producto.Id, producto);
+            }
+
+            if (response.Success)
+            {
+                var action = Producto == null ? "creado" : "actualizado";
+                Snackbar.Add($"Producto {action} correctamente", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add($"Error: {response.Message}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error de conexión con el servidor", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

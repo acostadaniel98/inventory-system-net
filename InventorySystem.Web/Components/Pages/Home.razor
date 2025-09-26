@@ -1,0 +1,211 @@
+﻿@page "/"
+@using InventorySystem.Web.Models
+@using InventorySystem.Web.Services
+@inject IReporteClientService ReporteService
+@inject ISnackbar Snackbar
+
+<PageTitle>Dashboard - Sistema de Inventario</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+            <MudText Typo="Typo.h3" Class="mb-6" Color="Color.Primary">Dashboard del Sistema</MudText>
+
+            @if (loading)
+            {
+                <div class="d-flex justify-center mt-8">
+                    <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                </div>
+            }
+            else if (dashboardData != null)
+            {
+                <MudGrid>
+                    <!-- Cards de estadísticas principales -->
+                    <MudItem xs="12" md="3">
+                        <MudPaper Class="pa-4" Elevation="2">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Inventory" Size="Size.Large" Color="Color.Primary" Class="mr-4" />
+                                <div>
+                                    <MudText Typo="Typo.h4">@dashboardData.TotalProductos</MudText>
+                                    <MudText Typo="Typo.body2">Productos Total</MudText>
+                                </div>
+                            </div>
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="12" md="3">
+                        <MudPaper Class="pa-4" Elevation="2">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Large" Color="Color.Success" Class="mr-4" />
+                                <div>
+                                    <MudText Typo="Typo.h4">@dashboardData.VentasCountDelMes</MudText>
+                                    <MudText Typo="Typo.body2">Ventas del Mes</MudText>
+                                </div>
+                            </div>
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="12" md="3">
+                        <MudPaper Class="pa-4" Elevation="2">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Size="Size.Large" Color="Color.Warning" Class="mr-4" />
+                                <div>
+                                    <MudText Typo="Typo.h4">@dashboardData.VentasDelMes.ToString("C")</MudText>
+                                    <MudText Typo="Typo.body2">Ingresos del Mes</MudText>
+                                </div>
+                            </div>
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="12" md="3">
+                        <MudPaper Class="pa-4" Elevation="2">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Large" Color="Color.Error" Class="mr-4" />
+                                <div>
+                                    <MudText Typo="Typo.h4">@dashboardData.ProductosBajoStock</MudText>
+                                    <MudText Typo="Typo.body2">Stock Bajo</MudText>
+                                </div>
+                            </div>
+                        </MudPaper>
+                    </MudItem>
+
+                    <!-- Tabla de productos con stock bajo -->
+                    @if (dashboardData.ProductosBajoStock > 0)
+                    {
+                        <MudItem xs="12" md="6">
+                            <MudPaper Class="pa-4" Elevation="2">
+                                <MudText Typo="Typo.h5" Class="mb-4" Color="Color.Error">Productos con Stock Bajo</MudText>
+                                <MudText Typo="Typo.body2" Class="mb-4">Productos que requieren atención inmediata</MudText>
+                                <MudButton Variant="Variant.Outlined" 
+                                          Color="Color.Primary" 
+                                          StartIcon="@Icons.Material.Filled.Inventory"
+                                          Href="/productos">
+                                    Ver Todos los Productos
+                                </MudButton>
+                            </MudPaper>
+                        </MudItem>
+                    }
+
+                    <!-- Resumen de ventas recientes -->
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4" Elevation="2">
+                            <MudText Typo="Typo.h5" Class="mb-4" Color="Color.Success">Ventas del Mes</MudText>
+                            <div class="d-flex justify-space-between align-center mb-2">
+                                <MudText Typo="Typo.body1">Total Ventas:</MudText>
+                                <MudText Typo="Typo.h6">@dashboardData.VentasCountDelMes</MudText>
+                            </div>
+                            <div class="d-flex justify-space-between align-center mb-4">
+                                <MudText Typo="Typo.body1">Ingresos Totales:</MudText>
+                                <MudText Typo="Typo.h6">@dashboardData.VentasDelMes.ToString("C")</MudText>
+                            </div>
+                            <MudButton Variant="Variant.Outlined" 
+                                      Color="Color.Primary" 
+                                      StartIcon="@Icons.Material.Filled.Receipt"
+                                      Href="/ventas">
+                                Ver Todas las Ventas
+                            </MudButton>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Accesos rápidos -->
+                <MudText Typo="Typo.h4" Class="mt-8 mb-4" Color="Color.Primary">Accesos Rápidos</MudText>
+                <MudGrid>
+                    <MudItem xs="12" md="3">
+                        <MudCard Elevation="2" Class="cursor-pointer" Style="height: 120px;" @onclick="@(() => Navigation.NavigateTo("/productos"))">
+                            <MudCardContent Class="d-flex flex-column justify-center align-center pa-4">
+                                <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Large" Color="Color.Primary" Class="mb-2" />
+                                <MudText Typo="Typo.h6" Align="Align.Center">Nuevo Producto</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudCard Elevation="2" Class="cursor-pointer" Style="height: 120px;" @onclick="@(() => Navigation.NavigateTo("/ventas"))">
+                            <MudCardContent Class="d-flex flex-column justify-center align-center pa-4">
+                                <MudIcon Icon="@Icons.Material.Filled.ShoppingCart" Size="Size.Large" Color="Color.Success" Class="mb-2" />
+                                <MudText Typo="Typo.h6" Align="Align.Center">Nueva Venta</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudCard Elevation="2" Class="cursor-pointer" Style="height: 120px;" @onclick="@(() => Navigation.NavigateTo("/compras"))">
+                            <MudCardContent Class="d-flex flex-column justify-center align-center pa-4">
+                                <MudIcon Icon="@Icons.Material.Filled.LocalShipping" Size="Size.Large" Color="Color.Info" Class="mb-2" />
+                                <MudText Typo="Typo.h6" Align="Align.Center">Nueva Compra</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudCard Elevation="2" Class="cursor-pointer" Style="height: 120px;" @onclick="@(() => Navigation.NavigateTo("/reportes"))">
+                            <MudCardContent Class="d-flex flex-column justify-center align-center pa-4">
+                                <MudIcon Icon="@Icons.Material.Filled.Assessment" Size="Size.Large" Color="Color.Warning" Class="mb-2" />
+                                <MudText Typo="Typo.h6" Align="Align.Center">Ver Reportes</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                </MudGrid>
+            }
+        </MudContainer>
+    </Authorized>
+    <NotAuthorized>
+        <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-16">
+            <MudPaper Class="pa-8" Elevation="4">
+                <div class="d-flex flex-column align-center">
+                    <MudIcon Icon="@Icons.Material.Filled.Inventory" Size="Size.Large" Color="Color.Primary" Class="mb-4" />
+                    <MudText Typo="Typo.h3" Class="mb-4" Color="Color.Primary">Sistema de Inventario</MudText>
+                    <MudText Typo="Typo.h6" Class="mb-6" Align="Align.Center">
+                        Gestiona tu inventario de manera eficiente con módulos de compras, ventas y reportes en tiempo real.
+                    </MudText>
+                    <MudButton Variant="Variant.Filled" 
+                              Color="Color.Primary" 
+                              Size="Size.Large"
+                              StartIcon="@Icons.Material.Filled.Login"
+                              OnClick="@(() => Navigation.NavigateTo("/login"))">
+                        Iniciar Sesión
+                    </MudButton>
+                </div>
+            </MudPaper>
+        </MudContainer>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private DashboardStatsDto? dashboardData;
+    private bool loading = true;
+
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        loading = true;
+        try
+        {
+            var response = await ReporteService.GetDashboardDataAsync();
+            if (response.Success)
+            {
+                dashboardData = response.Data;
+            }
+            else
+            {
+                // Si hay error, mostrar datos de prueba para demo
+                dashboardData = new DashboardStatsDto();
+                Snackbar.Add("Error al cargar datos del dashboard", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Datos de prueba para demo
+            dashboardData = new DashboardStatsDto();
+            Snackbar.Add("Error de conexión. Mostrando datos de prueba.", Severity.Warning);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}
